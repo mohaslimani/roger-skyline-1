@@ -1,0 +1,154 @@
+V.1 Soyons plus que copains !
+-----------------------------
+* déjà fait
+
+V.2 Partie VM
+	-------------
+	* installer une (VM) avec l’OS Linux de votre choix (Debian Jessie, CentOS 7...)
+dans l’hyperviseur de votre choix (VMWare Fusion, VirtualBox...)
+	* settings => netwwork => bridged adapter
+	* verifier partitions fdisk -l
+	* apt-get update
+	apt-get upgrade
+	apt-get dist-upgrade
+	* apt-get install vim
+
+	V.3 Partie Réseau et Sécurité
+	-----------------------------
+	* adduser	nom-user
+	* apt-get install sudo
+	usermod -aG sudo nom-user
+pour verifier (groups nom-user)
+	exit => exit pour appliquer cmd
+	* settings => netwwork => bridged adapter
+	pour trouver @ip : ip a
+	ifdown enp0s3 = desactive nom-interface
+	vim /etc/netework/interfaces
+	change dhcp ==> static
+	Ajouter Address :		address 10.12.??.??
+Ajouter netmask :		netmask 255.255.255.252 (netmask 30)
+	Ajouter gateway :		gateway 10.12.254.254
+	ifup enp0s3 = active nom-interface
+	service networking restart ==> reboot
+	* vim /etc/ssh/sshd_config
+	change # port 22 à 2222
+	cree publickeys avec cmd : ssh-keygen en ma machaine(pc dyali) ghadi nl9ah ~/.ssh
+	copye : ssh-copy-id user@ip ghadi nl9ah fil machine lakhra ~/.ssh/authorized_keys
+	L’utilisateur root ne doit pas pouvoir se connecter en SSH :
+	vi /etc/ssh/sshd_config
+	Changer : #PermitRootLogin yes à PermitRootLogin no
+	* apt-get install ufw
+	ufw default deny incoming
+	                               g
+	ufw allow 220 (ssh)
+	ufw allow 80 (http)
+	ufw allow 443 (https)
+	ufw enable
+	ufw status bach tchuf rules dyal ufw
+	iptables -L
+	* apt-get install fail2ban
+	cree deux fichier jail.local et http-get-dos.conf
+	vim /etc/fail2ban/jail.local <== copier jail
+	vim /etc/fail2ban/filter.d/http-get-dos.conf
+	coller filter :
+	/*[Definition]
+	failregex = ^<HOST> -.*"(GET|POST).*
+	ignoreregex =*/
+	servive   fail2ban restart
+	========test fail2ban ============
+	./slowloris.py @ip   ====> dos attack
+	verifier ip banned in vm : fail2ban-client status http-get-dos
+	bach irja3 hadak ltbana : fail2ban-client set http-get-dos unbanip @ip
+	* apt-get install portsentry
+	c
+	modifier BLOCK_UDP="1" BLOCK_TCP="1"
+	vim /etc/default/portsentry
+	modifier TCP_MODE="atcp" UPD_MODE="audp"
+	service portsentry restart
+	========test portsentry ============
+	nmap @ip
+	* service --status-all
+	service nom-service stop
+	* cree dossier scripts dans /etc/
+	cree fichier update.sh
+	vim update.sh
+#!/bin/bash
+	date >> /var/log/update_script.log
+	apt-get update >> /var/log/update_script.log
+	apt-get upgrade -y >> /var/log/update_script.log
+	------------------------------------------------
+	chmod +x update.sh
+	-------------------test script------------------
+	./update.sh
+	cat /var/log/update_script.log
+	----------------------------------------------------------------------------------
+	tache plannifiée une fois par semaine(dimanche) à 4h00 du matin et à chaque reboot
+	------------------------------aide : https://crontab.guru-------------------------
+	----------------------------------------------------------------------------------
+	crontab -e
+	Select an editor.  To change later, run 'select-editor'.
+	1. /bin/nano        <---- easiest
+	2. /usr/bin/vim.basic
+	3. /usr/bin/vim.tiny
+
+	taper 2 et coller
+	@reboot bash /etc/scripts/update.sh
+	0 4 * * 0 bash /etc/scripts/update.sh
+	------
+	reboot
+	* cree fichier cron-monitor.sh
+	vim cron-monitor.sh
+#!/bin/bash
+	filename="md5_print"
+	if [ ! -f $filename ]
+	then
+	md5sum  /etc/crontab | cut -d ' ' -f 1 > $filename
+	else
+old_hash=$(cat md5_print)
+	new_hash=$(md5sum /etc/crontab | cut -d ' ' -f 1)
+	if [ "$old_hash" != "$new_hash" ]
+	then
+	echo "the file /etc/crontab was modified" | mail -s "crontab updated" yerradi@debian
+	echo "$new_hash" >  md5_print
+	fi
+	fi
+	------------
+	apt-get install mailutils
+	crontab -e ajouter cmd : 0 0 * * * bash /etc/scripts/cron_monitor.sh
+	--------------
+	verifier maill cmd : mail
+
+	VI.1 Partie Web
+
+	https://www.digitalocean.com/community/tutorials/how-to-create-a-self-signed-ssl-certificate-for-apache-in-debian-9
+	* sudo apt-get install git
+	cree repo à github avec nom roger_skyline
+	cd /var/www/
+	git clone https://github.com/yerradi/roger_skyline.git
+	ls ==> html  roger_skyline
+	rm -rf html/
+	mv roger_skyline html
+	ls ==> html
+copier les info script à vm (home)
+	cmd : scp -P 2222 42_logo.svg yerradi@10.11.100.242:~
+	mv les fichier à html
+	chown root:root *
+	* cree script deploy.sh
+#!/bin/sh
+FILENAME=$(cat /home/checkfile)
+	cd /var/www/html
+	git fetch
+NEWLOG=$(git log origin/master)
+	if [ "$FILENAME" != "$NEWLOG" ];then
+	git merge
+	"$NEWLOG" > /home/checkfile
+	fi
+	--------------------
+	ajouter à crontab -e
+	shasum debian-9.6.vdi > checksum
+
+
+
+
+
+	https://forum.ubuntu-fr.org/viewtopic.php?id=25216

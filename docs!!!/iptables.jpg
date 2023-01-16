@@ -1,0 +1,75 @@
+#
+#
+# Script is for stoping Portscan and smurf attack
+
+### first flush all the iptables Rules
+iptables -F
+iptables -t filter -P INPUT DROP
+
+# INPUT iptables Rules
+# Accept loopback input
+iptables -A INPUT -i lo -p all -j ACCEPT
+
+# allow 3 way handshake
+iptables -A INPUT -m state --state ESTABLISHED,RELATED -j ACCEPT
+
+#smurf attack
+iptables -A INPUT -p icmp -m icmp --icmp-type address-mask-request -j DROP
+iptables -A INPUT -p icmp -m icmp --icmp-type timestamp-request -j DROP
+
+iptables -A INPUT -m state --state INVALID -j DROP
+iptables -A FORWARD -m state --state INVALID -j DROP
+iptables -A OUTPUT -m state --state INVALID -j DROP
+
+# flooding of RST packets, smurf attack Rejection
+iptables -A INPUT -p tcp -m tcp --tcp-flags RST RST -m limit --limit 2/second --limit-burst 2 -j ACCEPT
+
+# Protecting portscans
+# Attacking IP will be locked for 24 hours (3600 x 24 = 86400 Seconds)
+iptables -A INPUT -m recent --name portscan --rcheck --seconds 100 -j DROP
+iptables -A FORWARD -m recent --name portscan --rcheck --seconds 100 -j DROP
+
+# Remove attacking IP after 24 hours
+iptables -A INPUT -m recent --name portscan --remove
+iptables -A FORWARD -m recent --name portscan --remove
+
+# These rules add scanners to the portscan list, and log the attempt.
+iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "portscan:"
+iptables -A INPUT -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j LOG --log-prefix "portscan:"
+iptables -A FORWARD -p tcp -m tcp --dport 139 -m recent --name portscan --set -j DROP
+
+#ping
+iptables -t filter -A INPUT -i enp0s3 -p icmp --icmp-type echo-request -j ACCEPT
+iptables -t filter -A OUTPUT -o enp0s3 -p icmp --icmp-type echo-reply -j ACCEPT
+# Allow the following ports through from outside
+iptables -A INPUT -p tcp -s 10.12.6.13/32 --dport 1994 -m conntrack --ctstate NEW,ESTABLISHED -j ACCEPT
+iptables -A INPUT -p tcp -m tcp --dport 80 -j ACCEPT
+iptables -A INPUT -p tcp -m tcp --dport 443 -j ACCEPT
+
+# Allow ping means ICMP port is open (If you do not want ping replace ACCEPT with REJECT)
+
+# Lastly reject All INPUT traffic
+iptables -A INPUT -j REJECT
+
+
+################# Below are for OUTPUT iptables rules #############################################
+
+## Allow loopback OUTPUT
+
+# Allow the following ports through from outside
+# SMTP = 25
+# DNS =53
+# HTTP = 80
+# HTTPS = 443
+# SSH = 22
+### You can also add or remove port no. as per your requirement
+
+
+# Allow pings
+
+# Lastly Reject all Output traffic
+
+## Reject Forwarding  traffic
+iptables -A FORWARD -j REJECT
